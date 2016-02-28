@@ -1,0 +1,25 @@
+{
+  "name": "sim900-at",
+  "version": "1.0.0",
+  "description": "Wrapper for sim900 AT commands",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/inoc603/sim900-at.git"
+  },
+  "keywords": [
+    "sim900"
+  ],
+  "author": "inoc603",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/inoc603/sim900-at/issues"
+  },
+  "homepage": "https://github.com/inoc603/sim900-at#readme",
+  "dependencies": {
+    "serialport": "^2.0.6"
+  }
+}
