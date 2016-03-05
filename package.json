@@ -20,6 +20,11 @@
   },
   "homepage": "https://github.com/inoc603/sim900-at#readme",
   "dependencies": {
+    "es6-promisify": "^3.0.0",
+    "lodash": "^4.6.1",
+    "nodent": "^2.4.0",
+    "pdu": "^1.1.0",
+    "queue": "^3.1.0",
     "serialport": "^2.0.6"
   }
 }

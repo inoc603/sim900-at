@@ -1,0 +1,3 @@
+require('nodent')()
+
+require('./test')()
