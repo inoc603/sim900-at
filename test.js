@@ -28,10 +28,19 @@ module.exports = async function main() {
     //   console.log('message', res)
     // }
 
-    // res = await sim.readMsg(10)
+    // res = await sim.readMsg(18)
     // console.log(res)
 
-    res = await sim.checkTTS()
+    sim.on('message', (msg) => {
+      console.log('know thats a msg', msg)
+    })
+    res = await sim.readFullMsg(20)
+    console.log('full message', res)
+    // sim.handlers.NEW_MSG('+CMTI: "SM",20', () => {
+    //   sim.handlers.NEW_MSG('+CMTI: "SM",21')
+    // })
+
+    // res = await sim.checkTTS()
 
 
     // await sleep(1000)

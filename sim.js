@@ -10,6 +10,7 @@ const queue = require('queue')
 const utils = require('./util')
 const pdu = require('pdu')
 const _ = require('lodash')
+const debug = require('debug')('debug')
 
 const DEFAULT_BAUDRATE = 115200
 const DEFAULT_LINEENDING = '\r\n'
@@ -25,10 +26,35 @@ const RESPONSE_PATTERN = {
 
 const HANDLERS = Object.create(null)
 
-HANDLERS.NEW_MSG = async function recvNewMsg(response) {
+HANDLERS.NEW_MSG = async function recvNewMsg(response, cb) {
   let pos = EVENT_PATTERN.NEW_MSG.exec(response)[1]
   let msg = await this.readMsg(pos)
-  console.log('new message:', msg)
+  if (_.has(msg, 'udh.parts') && _.has(msg, 'udh.current_part')) {
+    debug('long message %d of %d', msg.udh.current_part, msg.udh.parts)
+    const ref = msg.udh.reference_number
+    this.tmpMsg[ref] = this.tmpMsg[ref] || []
+    this.tmpMsg[ref][msg.udh.current_part - 1] = msg
+
+    if (_.isNil(this.tmpMsgCount[ref]))
+      this.tmpMsgCount[ref] = 1
+    else
+      this.tmpMsgCount[ref] += 1
+
+    if (this.tmpMsgCount[ref] === msg.udh.parts) {
+      debug('message complete')
+      this.emit('message', this.tmpMsg[ref].reduce((wholeMsg, partMsg) => {
+        if (_.isUndefined(wholeMsg))
+          return partMsg
+        wholeMsg.text += partMsg.text
+        return wholeMsg
+      }, undefined))
+      delete this.tmpMsg[ref]
+      delete this.tmpMsgCount[ref]
+    }
+  } else {
+    this.emit('message', msg)
+  }
+  cb()
 }
 
 HANDLERS.RING = function hehe(response) {
@@ -45,10 +71,9 @@ module.exports = class Sim extends EventEmitter {
     this.handlers = Object.create(null)
     this.currentResponse = new EventEmitter()
     this.queue = queue()
+    this.tmpMsg = Object.create(null)
+    this.tmpMsgCount = Object.create(null)
 
-    this.queue.on('success', () => {
-      console.log('task suceess')
-    })
     this.queue.on('error', (err) => {
       console.log('crap', err)
     })
@@ -68,7 +93,6 @@ module.exports = class Sim extends EventEmitter {
     })
 
     this.port.on('data', (data) => {
-      console.log('sp data', data)
       this.response += data
       let sep
       while ((sep = this.response.indexOf(this.lineEnding)) !== -1) {
@@ -83,7 +107,7 @@ module.exports = class Sim extends EventEmitter {
     })
 
     this.on('data', (data) => {
-      console.log('sim data', data)
+      debug('sim data', data)
       let special = false
       for (const i in EVENT_PATTERN) {
         if (EVENT_PATTERN[i].test(data)) {
@@ -103,7 +127,7 @@ module.exports = class Sim extends EventEmitter {
   }
 
   send(cmd) {
-    console.log('trying to send', cmd)
+    debug('send command:', cmd)
     return new Promise((resolve, reject) => {
       this.queue.push((cb) => {
         let resEmitter = new EventEmitter()
@@ -121,7 +145,6 @@ module.exports = class Sim extends EventEmitter {
 
   async getSignalQuality() {
     let res = await this.send('AT+CSQ')
-    console.log(res)
     return res
   }
 
@@ -140,10 +163,14 @@ module.exports = class Sim extends EventEmitter {
     const res = await this.send(`AT+CMGR=${pos}`)
     let msg = pdu.parse(res[1])
     msg.text = msg.text.replace(/\u0000/g, '')
+    return msg
+  }
+
+  async readFullMsg(pos) {
+    let msg = await this.readMsg(pos)
     if (_.has(msg, 'udh.parts') && _.has(msg, 'udh.current_part')) {
-      console.log('long message', msg)
-      if (msg.udh.parts > msg.udh.current_part) {
-        let nextMsg = await this.readMsg(parseInt(pos) + 1)
+      for (var i = 1; i <= msg.udh.parts - msg.udh.current_part; i++) {
+        let nextMsg = await this.readMsg(parseInt(pos) + i)
         msg.text += nextMsg.text
       }
     }
